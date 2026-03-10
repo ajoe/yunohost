@@ -754,7 +754,7 @@ def user_export() -> Union[str, "HTTPResponseType"]:
 @is_unit_operation()
 def user_import(
     operation_logger: "OperationLogger",
-    csvfile: TextIO,
+    csvfile: Union[str, TextIO],
     update: bool = False,
     delete: bool = False,
 ) -> dict[str, int]:
@@ -767,11 +767,27 @@ def user_import(
     """
 
     import csv  # CSV are needed only in this function
+    from io import StringIO
 
     from .app import app_ssowatconf
     from .domain import domain_list
     from .permission import _sync_permissions_with_ldap
     from .utils.misc import random_ascii
+
+    # Convert csvfile input to a TextIO object depending on the context:
+    # - TextIO: already a file-like object (e.g. from tests), use directly
+    # - str via API: base64-encoded CSV content, decode and wrap in StringIO
+    # - str via CLI: file path, open the file
+    if hasattr(csvfile, "read"):
+        csvfile_io = csvfile
+    elif isinstance(csvfile, str) and Moulinette.interface.type == "api":
+        import base64
+
+        csvfile_io = StringIO(base64.b64decode(csvfile).decode("utf-8"))
+    elif isinstance(csvfile, str):
+        csvfile_io = open(csvfile, "r")
+    else:
+        raise YunohostError("Invalid csvfile argument")
 
     # Pre-validate data and prepare what should be done
     actions: dict[str, list[dict[str, Any]]] = {
@@ -790,7 +806,7 @@ def user_import(
     existing_groups = user_group_list()["groups"]
     existing_domains = domain_list()["domains"]
 
-    reader = csv.DictReader(csvfile, delimiter=";", quotechar='"')
+    reader = csv.DictReader(csvfile_io, delimiter=";", quotechar='"')
     reader_fields = cast(list[str], reader.fieldnames)
     users_in_csv = []
 

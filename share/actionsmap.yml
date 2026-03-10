@@ -224,7 +224,6 @@ user:
             arguments:
                 csvfile:
                     help: "CSV file with columns username, firstname, lastname, password, mail, mailbox-quota, mail-alias, mail-forward, groups (separated by coma)"
-                    type: open
                     extra:
                         autocomplete:
                             zsh_completion: _files
